@@ -131,3 +131,26 @@ type ReaderContent struct {
 	HTMLContent *string `json:"html_content"`
 	WordCount   *int    `json:"word_count"`
 }
+
+// SearchHit is deliberately narrow. The three search RPCs return different
+// column sets, and pinning all of them into one struct here would mean a
+// column rename in Postgres silently becoming an empty table cell. These are
+// the fields every mode returns.
+type SearchHit struct {
+	ID    string   `json:"id"`
+	Title *string  `json:"title"`
+	URL   *string  `json:"url"`
+	Score *float64 `json:"score"`
+}
+
+type Highlight struct {
+	ID           string  `json:"id"`
+	LinkID       string  `json:"link_id"`
+	ArticleURL   *string `json:"article_url"`
+	SelectedText string  `json:"selected_text"`
+	StartOffset  int     `json:"start_offset"`
+	EndOffset    int     `json:"end_offset"`
+	Color        *string `json:"color"`
+	Annotation   *string `json:"annotation"`
+	CreatedAt    string  `json:"created_at"`
+}
