@@ -1,0 +1,30 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          # Read from go.mod rather than pinned here, so the toolchain moves in
+          # one place instead of two that can disagree.
+          go-version-file: go.mod
+          cache: true
+
+      - run: gofmt -l . | tee /tmp/fmt && test ! -s /tmp/fmt
+      - run: go vet ./...
+      - run: go test ./... -race
+
+      # Cross-compilation is the thing goreleaser will do on a tag. Finding out
+      # here costs a minute; finding out during a release costs the release.
+      - name: Cross compile every target
+        run: |
+          for target in darwin/arm64 darwin/amd64 linux/arm64 linux/amd64 windows/amd64; do
+            GOOS=${target%/*} GOARCH=${target#*/} go build -o /dev/null ./cmd/linkwise
+          done

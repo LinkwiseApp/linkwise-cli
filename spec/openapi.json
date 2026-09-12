@@ -1,0 +1,3555 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Linkwise API",
+    "version": "1.0.0",
+    "summary": "Save, search, organise and read the things you collect.",
+    "description": "The public HTTP API for Linkwise, served by the `api` edge function.\n\nThis document is the source of truth. The MCP server's tool definitions and\nthe CLI's commands are generated from it, so neither can drift from what the\nAPI actually serves. Change the API here first.\n\nSee `README.md` in this directory for auth, pagination and error handling\nprose, and `inventory.md` for the other 83 edge functions that sit behind\nthis one.\n",
+    "contact": {
+      "name": "Linkwise",
+      "url": "https://linkwise.app"
+    },
+    "license": {
+      "name": "Proprietary"
+    }
+  },
+  "servers": [
+    {
+      "url": "https://jcbgrqawrvztwsvxawda.supabase.co/functions/v1/api",
+      "description": "Production"
+    }
+  ],
+  "security": [
+    {
+      "personalAccessToken": []
+    },
+    {
+      "sessionJwt": []
+    }
+  ],
+  "tags": [
+    {
+      "name": "Links",
+      "description": "The library. Saving, reading, organising and deleting links."
+    },
+    {
+      "name": "Collections"
+    },
+    {
+      "name": "Tags"
+    },
+    {
+      "name": "Highlights"
+    },
+    {
+      "name": "Search"
+    },
+    {
+      "name": "Discover",
+      "description": "The recommendation feed and the interactions that train it."
+    },
+    {
+      "name": "Feeds",
+      "description": "RSS subscriptions."
+    },
+    {
+      "name": "AI",
+      "description": "Chat over a link, a collection or the whole library, plus speech."
+    },
+    {
+      "name": "Account"
+    },
+    {
+      "name": "Tokens",
+      "description": "Personal access token management. Session JWT only."
+    },
+    {
+      "name": "Meta"
+    }
+  ],
+  "paths": {
+    "/v1/health": {
+      "get": {
+        "tags": [
+          "Meta"
+        ],
+        "summary": "Liveness check",
+        "description": "The only unauthenticated endpoint, so uptime checks need no credential.",
+        "security": [],
+        "operationId": "getHealth",
+        "x-scopes": [],
+        "responses": {
+          "200": {
+            "description": "Service is up",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "status": {
+                          "type": "string",
+                          "const": "ok"
+                        },
+                        "version": {
+                          "type": "string",
+                          "const": "v1"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/links": {
+      "get": {
+        "tags": [
+          "Links"
+        ],
+        "summary": "List links",
+        "operationId": "listLinks",
+        "x-scopes": [
+          "links:read"
+        ],
+        "description": "Newest first by default. All filters combine with AND.\n\nNote the tri-state booleans: omitting `archived` is not the same as\n`archived=false`. Omitted means no filter on that column.\n",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Cursor"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "name": "collection_id",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "tag_id",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "feed_id",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "archived",
+            "in": "query",
+            "description": "Defaults to false, i.e. archived links are hidden.",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "is_visited",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "has_insights",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "no_collection",
+            "in": "query",
+            "description": "Only links not filed in any collection.",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "is_email",
+            "in": "query",
+            "description": "Only links that arrived by email drop.",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "sort_by",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "created_at",
+                "updated_at",
+                "title"
+              ]
+            }
+          },
+          {
+            "name": "sort_order",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
+              ],
+              "default": "desc"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A page of links",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/PagedEnvelope"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/Link"
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Links"
+        ],
+        "summary": "Save a link",
+        "operationId": "createLink",
+        "x-scopes": [
+          "links:write"
+        ],
+        "description": "Returns immediately. Fetching, parsing, chunking and embedding happen\nasynchronously, so `processing_status` will be pending on the response\nand the reader content and transcript endpoints will 404 until it\ncompletes.\n\n**Idempotent, on a best-effort basis.** Saving a URL already in your\nlibrary returns `200` with the existing link and `meta.already_existed`\ntrue, rather than creating a duplicate. It is best-effort because the\ncanonical URL is only known after the link is fetched and redirects are\nfollowed, so a link submitted twice in quick succession, or submitted\nunder two URLs that redirect to the same place, can still produce two\nrows. Check the status code to tell the cases apart: `201` created,\n`200` already there.\n\nPlan limits are enforced with the same `check_user_limits` RPC the apps\nuse, so this cannot be used to exceed a quota the UI honours. The limit\nis only consulted when a link is actually created.\n",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "url"
+                ],
+                "properties": {
+                  "url": {
+                    "type": "string",
+                    "format": "uri",
+                    "examples": [
+                      "https://example.com/article"
+                    ]
+                  },
+                  "title": {
+                    "type": "string",
+                    "description": "Overrides the title parsed from the page."
+                  },
+                  "description": {
+                    "type": "string",
+                    "description": "Your own summary. Kept: process_link only fills description when the link has none, so supplying one here is not overwritten when the page is parsed.\n"
+                  },
+                  "collection_id": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "format": "uuid"
+                  },
+                  "tags": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "Tag names. Any that do not exist are created."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "This URL was already in the library. The existing link is returned\nand nothing was created.\n",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Link"
+                    },
+                    "meta": {
+                      "type": "object",
+                      "properties": {
+                        "already_existed": {
+                          "type": "boolean",
+                          "const": true
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Link saved and queued for processing",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Link"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/InvalidRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "402": {
+            "$ref": "#/components/responses/PlanLimit"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        }
+      }
+    },
+    "/v1/links/{id}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/LinkId"
+        }
+      ],
+      "get": {
+        "tags": [
+          "Links"
+        ],
+        "summary": "Get a link",
+        "operationId": "getLink",
+        "x-scopes": [
+          "links:read"
+        ],
+        "responses": {
+          "200": {
+            "description": "The link",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Link"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "Links"
+        ],
+        "summary": "Update a link",
+        "operationId": "updateLink",
+        "x-scopes": [
+          "links:write"
+        ],
+        "description": "Only the fields present in the body are changed.\n\n`is_pinned` is applied through the pin RPC rather than written directly,\nbecause the number of pins allowed depends on the plan. Sending it\ntoggles the pin rather than setting it to the value supplied.\n",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "title": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "description": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "description": "Your own summary. Send null to clear it."
+                  },
+                  "collection_id": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "format": "uuid"
+                  },
+                  "is_visited": {
+                    "type": "boolean"
+                  },
+                  "archived": {
+                    "type": "boolean",
+                    "description": "True sets archived_at to now; false clears it."
+                  },
+                  "is_pinned": {
+                    "type": "boolean",
+                    "description": "Toggles the pin. Subject to the per-plan pin cap."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Link"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/InvalidRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Links"
+        ],
+        "summary": "Delete a link",
+        "operationId": "deleteLink",
+        "x-scopes": [
+          "links:write"
+        ],
+        "description": "A soft delete, matching the apps: the row is marked deleted and stops\nappearing, and is purged later by the archive lifecycle job.\n",
+        "responses": {
+          "204": {
+            "description": "Deleted"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/v1/links/{id}/content": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/LinkId"
+        }
+      ],
+      "get": {
+        "tags": [
+          "Links"
+        ],
+        "summary": "Get reader content",
+        "operationId": "getLinkContent",
+        "x-scopes": [
+          "links:read"
+        ],
+        "description": "The parsed, sanitised article body, plus a computed outline. 404s while\nthe link is still processing, or when the page yielded no readable\narticle.\n",
+        "responses": {
+          "200": {
+            "description": "Reader content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/ReaderContent"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/v1/links/{id}/transcript": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/LinkId"
+        }
+      ],
+      "get": {
+        "tags": [
+          "Links"
+        ],
+        "summary": "Get a transcript",
+        "operationId": "getLinkTranscript",
+        "x-scopes": [
+          "links:read"
+        ],
+        "description": "For YouTube and other media links. 404s when there is none.",
+        "responses": {
+          "200": {
+            "description": "Transcript with timed segments",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "full_transcript": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "transcript_source": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "transcript_segments": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "start": {
+                                "type": "number"
+                              },
+                              "duration": {
+                                "type": "number"
+                              },
+                              "text": {
+                                "type": "string"
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/v1/links/{id}/insights": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/LinkId"
+        }
+      ],
+      "get": {
+        "tags": [
+          "Links"
+        ],
+        "summary": "Get AI insights for a link",
+        "operationId": "getLinkInsights",
+        "x-scopes": [
+          "links:read"
+        ],
+        "description": "Read-only. Generating an insight is metered and asynchronous; that\nendpoint is not in v1 yet. 404s when none has been generated.\n",
+        "responses": {
+          "200": {
+            "description": "The insight",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Insight"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/v1/links/{id}/tags": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/LinkId"
+        }
+      ],
+      "put": {
+        "tags": [
+          "Links",
+          "Tags"
+        ],
+        "summary": "Replace a link's tags",
+        "operationId": "setLinkTags",
+        "x-scopes": [
+          "tags:write"
+        ],
+        "description": "Replaces the whole set rather than adding to it. Send the complete list\nyou want; an empty array removes them all. Tags that do not exist yet\nare created.\n",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "tags"
+                ],
+                "properties": {
+                  "tags": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The resulting tag set",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Tag"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/InvalidRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/v1/collections": {
+      "get": {
+        "tags": [
+          "Collections"
+        ],
+        "summary": "List collections",
+        "operationId": "listCollections",
+        "x-scopes": [
+          "collections:read"
+        ],
+        "description": "Returns every collection with its link count. Not paged.",
+        "responses": {
+          "200": {
+            "description": "All collections",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Collection"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Collections"
+        ],
+        "summary": "Create a collection",
+        "operationId": "createCollection",
+        "x-scopes": [
+          "collections:write"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "name"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "description": {
+                    "type": "string"
+                  },
+                  "color_tag": {
+                    "type": "string"
+                  },
+                  "icon_name": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Collection"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "402": {
+            "$ref": "#/components/responses/PlanLimit"
+          }
+        }
+      }
+    },
+    "/v1/collections/{id}": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      ],
+      "get": {
+        "tags": [
+          "Collections"
+        ],
+        "summary": "Get a collection",
+        "operationId": "getCollection",
+        "x-scopes": [
+          "collections:read"
+        ],
+        "responses": {
+          "200": {
+            "description": "The collection",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Collection"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "Collections"
+        ],
+        "summary": "Update a collection",
+        "operationId": "updateCollection",
+        "x-scopes": [
+          "collections:write"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "description": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "color_tag": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "icon_name": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "is_public": {
+                    "type": "boolean",
+                    "description": "Publishes the collection at a shareable URL."
+                  },
+                  "is_pinned": {
+                    "type": "boolean",
+                    "description": "Toggles the pin. Subject to the per-plan cap."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Collection"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Collections"
+        ],
+        "summary": "Delete a collection",
+        "operationId": "deleteCollection",
+        "x-scopes": [
+          "collections:write"
+        ],
+        "description": "Soft delete. Links inside it are not deleted, only unfiled.",
+        "responses": {
+          "204": {
+            "description": "Deleted"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/v1/tags": {
+      "get": {
+        "tags": [
+          "Tags"
+        ],
+        "summary": "List tags",
+        "operationId": "listTags",
+        "x-scopes": [
+          "tags:read"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Cursor"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "description": "Substring filter on tag name.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A page of tags with link counts",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/PagedEnvelope"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/Tag"
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Tags"
+        ],
+        "summary": "Create a tag",
+        "operationId": "createTag",
+        "x-scopes": [
+          "tags:write"
+        ],
+        "description": "Idempotent. Creating a tag that already exists returns the existing one.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "name"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created, or the existing tag",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Tag"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/tags/{id}": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      ],
+      "delete": {
+        "tags": [
+          "Tags"
+        ],
+        "summary": "Delete a tag",
+        "operationId": "deleteTag",
+        "x-scopes": [
+          "tags:write"
+        ],
+        "description": "Soft delete. The tag is removed from every link that had it.",
+        "responses": {
+          "204": {
+            "description": "Deleted"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/v1/highlights": {
+      "get": {
+        "tags": [
+          "Highlights"
+        ],
+        "summary": "List highlights",
+        "operationId": "listHighlights",
+        "x-scopes": [
+          "highlights:read"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Cursor"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "name": "link_id",
+            "in": "query",
+            "description": "Only highlights on this link.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "sort_by",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "created_at",
+                "updated_at"
+              ],
+              "default": "created_at"
+            }
+          },
+          {
+            "name": "sort_order",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
+              ],
+              "default": "desc"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A page of highlights",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/PagedEnvelope"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/Highlight"
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Highlights"
+        ],
+        "summary": "Create a highlight",
+        "operationId": "createHighlight",
+        "x-scopes": [
+          "highlights:write"
+        ],
+        "description": "Offsets are character positions into the reader content, so a highlight\ncreated against one parse may not line up if the article is re-parsed.\n",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "link_id",
+                  "selected_text",
+                  "start_offset",
+                  "end_offset"
+                ],
+                "properties": {
+                  "link_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "selected_text": {
+                    "type": "string"
+                  },
+                  "start_offset": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "end_offset": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "article_url": {
+                    "type": "string",
+                    "format": "uri",
+                    "description": "Defaults to the link's own URL."
+                  },
+                  "color": {
+                    "type": "string"
+                  },
+                  "annotation": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Highlight"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/InvalidRequest"
+          },
+          "404": {
+            "description": "The link does not exist or is not yours",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/highlights/{id}": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      ],
+      "patch": {
+        "tags": [
+          "Highlights"
+        ],
+        "summary": "Update a highlight",
+        "operationId": "updateHighlight",
+        "x-scopes": [
+          "highlights:write"
+        ],
+        "description": "Only the colour and annotation can change. Offsets and text are immutable.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "color": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "annotation": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Highlight"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Highlights"
+        ],
+        "summary": "Delete a highlight",
+        "operationId": "deleteHighlight",
+        "x-scopes": [
+          "highlights:write"
+        ],
+        "description": "A hard delete. Highlights have no soft-delete column.",
+        "responses": {
+          "204": {
+            "description": "Deleted"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/v1/search": {
+      "get": {
+        "tags": [
+          "Search"
+        ],
+        "summary": "Search the library",
+        "operationId": "search",
+        "x-scopes": [
+          "search:read"
+        ],
+        "description": "`hybrid` is the ranked path the apps use and is the default. `fast` is\ntrigram and full-text only: cheaper and lower latency, but it will not\nfind a document that never uses the query's words.\n\nSemantic-only search is deliberately absent. It needs a query embedding,\nwhich costs credits, so it sits behind chat instead.\n",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 500
+            }
+          },
+          {
+            "name": "mode",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "hybrid",
+                "fast"
+              ],
+              "default": "hybrid"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Cursor"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "name": "collection_id",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "tag_id",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Ranked results",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/SearchResult"
+                      }
+                    },
+                    "meta": {
+                      "type": "object",
+                      "properties": {
+                        "mode": {
+                          "type": "string",
+                          "enum": [
+                            "hybrid",
+                            "fast"
+                          ]
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/InvalidRequest"
+          }
+        }
+      }
+    },
+    "/v1/search/suggest": {
+      "get": {
+        "tags": [
+          "Search"
+        ],
+        "summary": "Type-ahead suggestions",
+        "operationId": "searchSuggest",
+        "x-scopes": [
+          "search:read"
+        ],
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 500
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Suggestions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "text": {
+                            "type": "string"
+                          },
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "link",
+                              "tag",
+                              "collection"
+                            ]
+                          },
+                          "id": {
+                            "type": "string",
+                            "format": "uuid"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/search/highlights": {
+      "get": {
+        "tags": [
+          "Search",
+          "Highlights"
+        ],
+        "summary": "Search highlights",
+        "operationId": "searchHighlights",
+        "x-scopes": [
+          "highlights:read"
+        ],
+        "description": "Full-text over highlighted passages and their annotations.",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 500
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Matching highlights",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Highlight"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/discover": {
+      "get": {
+        "tags": [
+          "Discover"
+        ],
+        "summary": "Get the discovery feed",
+        "operationId": "getDiscoverFeed",
+        "x-scopes": [
+          "discover:read"
+        ],
+        "description": "Personalised, ranked against a taste vector built from what you save and\nlike.\n\nThe ordering is seeded. Omit `seed` and one is generated for you and\nreturned in `meta.seed`; the returned `next_cursor` carries it. Pass the\nsame seed to keep paging through one stable ordering. Change it to\nreshuffle.\n",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Cursor"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "name": "seed",
+            "in": "query",
+            "description": "Stabilises ordering across pages.",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "categories",
+            "in": "query",
+            "description": "Comma-separated.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "kinds",
+            "in": "query",
+            "description": "Comma-separated item kinds.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A page of the feed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/DiscoveryItem"
+                      }
+                    },
+                    "meta": {
+                      "type": "object",
+                      "properties": {
+                        "seed": {
+                          "type": "integer"
+                        },
+                        "has_more": {
+                          "type": "boolean"
+                        },
+                        "next_cursor": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/discover/{id}/interactions": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      ],
+      "post": {
+        "tags": [
+          "Discover"
+        ],
+        "summary": "Record an interaction",
+        "operationId": "recordDiscoveryInteraction",
+        "x-scopes": [
+          "discover:write"
+        ],
+        "description": "Trains the recommendation model. Recording any interaction also marks\nthe item as seen, so it stops being served again.\n",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "event"
+                ],
+                "properties": {
+                  "event": {
+                    "type": "string",
+                    "enum": [
+                      "open",
+                      "save",
+                      "like",
+                      "dislike",
+                      "skip",
+                      "dwell",
+                      "share"
+                    ]
+                  },
+                  "dwell_ms": {
+                    "type": "integer",
+                    "description": "Milliseconds spent on the item. Meaningful with `dwell`."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Recorded"
+          },
+          "400": {
+            "$ref": "#/components/responses/InvalidRequest"
+          }
+        }
+      }
+    },
+    "/v1/discover/{id}/save": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      ],
+      "post": {
+        "tags": [
+          "Discover",
+          "Links"
+        ],
+        "summary": "Save a discovery item to the library",
+        "operationId": "saveDiscoveryItem",
+        "x-scopes": [
+          "discover:write",
+          "links:write"
+        ],
+        "description": "Requires both `discover:write` and `links:write`.",
+        "responses": {
+          "201": {
+            "description": "Saved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Link"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "402": {
+            "$ref": "#/components/responses/PlanLimit"
+          }
+        }
+      }
+    },
+    "/v1/feeds": {
+      "get": {
+        "tags": [
+          "Feeds"
+        ],
+        "summary": "List subscriptions",
+        "operationId": "listFeeds",
+        "x-scopes": [
+          "feeds:read"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Cursor"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A page of subscribed feeds",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/PagedEnvelope"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/Feed"
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Feeds"
+        ],
+        "summary": "Subscribe to a feed",
+        "operationId": "subscribeFeed",
+        "x-scopes": [
+          "feeds:write"
+        ],
+        "description": "Send `url` to discover a feed from a site address, handle or feed URL.\nDiscovery tries the platform-specific path first (Substack, Medium,\nGhost, WordPress), then `<link rel=alternate>`, then common paths.\n\nSend `feed_id` instead to subscribe to a feed already known to Linkwise,\nwhich skips discovery entirely.\n",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "required": [
+                      "url"
+                    ],
+                    "properties": {
+                      "url": {
+                        "type": "string",
+                        "examples": [
+                          "stratechery.com",
+                          "https://example.com/feed.xml"
+                        ]
+                      }
+                    }
+                  },
+                  {
+                    "type": "object",
+                    "required": [
+                      "feed_id"
+                    ],
+                    "properties": {
+                      "feed_id": {
+                        "type": "string",
+                        "format": "uuid"
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Subscribed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Feed"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "No feed could be found at that address",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "402": {
+            "$ref": "#/components/responses/PlanLimit"
+          }
+        }
+      }
+    },
+    "/v1/feeds/{id}": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      ],
+      "delete": {
+        "tags": [
+          "Feeds"
+        ],
+        "summary": "Unsubscribe",
+        "operationId": "unsubscribeFeed",
+        "x-scopes": [
+          "feeds:write"
+        ],
+        "description": "Removes your subscription. The feed itself is shared and is not deleted.",
+        "responses": {
+          "204": {
+            "description": "Unsubscribed"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/v1/feeds/export": {
+      "get": {
+        "tags": [
+          "Feeds"
+        ],
+        "summary": "Export subscriptions as OPML",
+        "operationId": "exportFeeds",
+        "x-scopes": [
+          "feeds:read"
+        ],
+        "description": "Standard OPML 2.0, importable by any other reader.",
+        "responses": {
+          "200": {
+            "description": "An OPML document",
+            "content": {
+              "text/x-opml+xml": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/chat": {
+      "post": {
+        "tags": [
+          "AI"
+        ],
+        "summary": "Chat over your library",
+        "operationId": "chat",
+        "x-scopes": [
+          "ai:chat"
+        ],
+        "x-pro": true,
+        "description": "Streams Server-Sent Events.\n\n`library` scope requires Pro. `link` and `collection` scopes require\n`context_id`.\n\n**Not yet available with a personal access token.** The upstream chat\nfunctions resolve their user from a session JWT and there is nothing to\nforward for a PAT, so a PAT gets an explicit error rather than being\nsilently run as the wrong user.\n",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "query"
+                ],
+                "properties": {
+                  "query": {
+                    "type": "string"
+                  },
+                  "scope": {
+                    "type": "string",
+                    "enum": [
+                      "library",
+                      "link",
+                      "collection"
+                    ],
+                    "default": "library"
+                  },
+                  "context_id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "description": "Required when scope is `link` or `collection`."
+                  },
+                  "conversation_id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "description": "Omit to start a new conversation."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "An SSE stream of tokens and tool events",
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/InvalidRequest"
+          },
+          "402": {
+            "$ref": "#/components/responses/ProRequired"
+          },
+          "500": {
+            "description": "Not available with a personal access token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/conversations": {
+      "get": {
+        "tags": [
+          "AI"
+        ],
+        "summary": "List conversations",
+        "operationId": "listConversations",
+        "x-scopes": [
+          "ai:chat"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Cursor"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "description": "Substring filter on conversation title.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "context_type",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "link",
+                "collection",
+                "library"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A page of conversations",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/PagedEnvelope"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/Conversation"
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/conversations/{id}/messages": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      ],
+      "get": {
+        "tags": [
+          "AI"
+        ],
+        "summary": "Get conversation messages",
+        "operationId": "getConversationMessages",
+        "x-scopes": [
+          "ai:chat"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Cursor"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A page of messages",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/PagedEnvelope"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/Message"
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/tts": {
+      "post": {
+        "tags": [
+          "AI"
+        ],
+        "summary": "Synthesise speech",
+        "operationId": "synthesizeSpeech",
+        "x-scopes": [
+          "tts:synthesize"
+        ],
+        "x-pro": true,
+        "description": "Requires Pro, and charges credits. Returns a URL to cached audio plus\nspeech marks for word-level highlighting.\n\n**Not yet available with a personal access token**, for the same reason\nas `/v1/chat`.\n",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "text"
+                ],
+                "properties": {
+                  "text": {
+                    "type": "string"
+                  },
+                  "linkId": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "voiceId": {
+                    "type": "string"
+                  },
+                  "speed": {
+                    "type": "number"
+                  },
+                  "includeSpeechMarks": {
+                    "type": "boolean"
+                  },
+                  "paragraphIndex": {
+                    "type": "integer"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Synthesised audio",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "audioUrl": {
+                          "type": "string",
+                          "format": "uri"
+                        },
+                        "durationMs": {
+                          "type": "integer"
+                        },
+                        "charCount": {
+                          "type": "integer"
+                        },
+                        "cached": {
+                          "type": "boolean"
+                        },
+                        "creditsCharged": {
+                          "type": "number"
+                        },
+                        "creditsRemaining": {
+                          "type": "number"
+                        },
+                        "speechMarks": {
+                          "type": "array",
+                          "items": {
+                            "type": "object"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "402": {
+            "$ref": "#/components/responses/ProRequired"
+          }
+        }
+      }
+    },
+    "/v1/me": {
+      "get": {
+        "tags": [
+          "Account"
+        ],
+        "summary": "Get the current account",
+        "operationId": "getMe",
+        "x-scopes": [
+          "profile:read"
+        ],
+        "description": "Identity, plan and how this request authenticated. Deliberately narrow:\nit does not return deletion tokens, suspension state or onboarding\ninternals.\n",
+        "responses": {
+          "200": {
+            "description": "The account",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Account"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "Account"
+        ],
+        "summary": "Update the profile",
+        "operationId": "updateMe",
+        "x-scopes": [
+          "profile:write"
+        ],
+        "description": "Username uniqueness and format are validated server-side.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "username": {
+                    "type": "string"
+                  },
+                  "avatar_url": {
+                    "type": "string",
+                    "format": "uri"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          }
+        }
+      }
+    },
+    "/v1/me/usage": {
+      "get": {
+        "tags": [
+          "Account"
+        ],
+        "summary": "Get credit usage",
+        "operationId": "getUsage",
+        "x-scopes": [
+          "profile:read"
+        ],
+        "responses": {
+          "200": {
+            "description": "Credits assigned, used and remaining",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Usage"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/me/limits": {
+      "get": {
+        "tags": [
+          "Account"
+        ],
+        "summary": "Check a plan limit",
+        "operationId": "getLimits",
+        "x-scopes": [
+          "profile:read"
+        ],
+        "description": "Ask whether an action is currently allowed, before attempting it.",
+        "parameters": [
+          {
+            "name": "action",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "add_link",
+                "add_collection",
+                "subscribe_feed"
+              ],
+              "default": "add_link"
+            }
+          },
+          {
+            "name": "collection_id",
+            "in": "query",
+            "description": "Relevant to per-collection link limits.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Whether the action is allowed, and the relevant quota",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "allowed": {
+                          "type": "boolean"
+                        },
+                        "limit_exceeded": {
+                          "type": "boolean"
+                        },
+                        "message": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/tokens": {
+      "get": {
+        "tags": [
+          "Tokens"
+        ],
+        "summary": "List personal access tokens",
+        "operationId": "listTokens",
+        "x-scopes": [],
+        "x-session-only": true,
+        "description": "Session JWT only. Never returns token values, only their display\nprefixes.\n",
+        "security": [
+          {
+            "sessionJwt": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Active tokens",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/TokenSummary"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Called with a personal access token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Tokens"
+        ],
+        "summary": "Create a personal access token",
+        "operationId": "createToken",
+        "x-scopes": [],
+        "x-session-only": true,
+        "description": "Session JWT only. A token cannot mint another token.\n\n**The plaintext value is returned once, here, and never again.** Only a\nSHA-256 hash and a display prefix are stored.\n\nMaximum ten active tokens per account.\n",
+        "security": [
+          {
+            "sessionJwt": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "name"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "examples": [
+                      "CLI on laptop"
+                    ]
+                  },
+                  "scopes": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/Scope"
+                    },
+                    "default": [
+                      "links:read",
+                      "search:read",
+                      "profile:read"
+                    ]
+                  },
+                  "expires_in_days": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 365,
+                    "description": "Omit for a token that never expires."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created. `token` appears only in this response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "allOf": [
+                        {
+                          "$ref": "#/components/schemas/TokenSummary"
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "token": {
+                              "type": "string",
+                              "description": "The plaintext token. Store it now.",
+                              "examples": [
+                                "lw_pat_A1b2C3d4..."
+                              ]
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/InvalidRequest"
+          }
+        }
+      }
+    },
+    "/v1/tokens/{id}": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      ],
+      "delete": {
+        "tags": [
+          "Tokens"
+        ],
+        "summary": "Revoke a token",
+        "operationId": "revokeToken",
+        "x-scopes": [],
+        "x-session-only": true,
+        "description": "Session JWT only. Takes effect immediately.",
+        "security": [
+          {
+            "sessionJwt": []
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Revoked"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "personalAccessToken": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "lw_pat",
+        "description": "A Linkwise personal access token, `lw_pat_` followed by 32 random bytes.\nCreate one at `POST /v1/tokens` with a signed-in session. Scope-limited.\n"
+      },
+      "sessionJwt": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "A Supabase session JWT. Holds every scope, matching what the same token\ncan already do against PostgREST directly. Required for `/v1/tokens`.\n"
+      }
+    },
+    "parameters": {
+      "Cursor": {
+        "name": "cursor",
+        "in": "query",
+        "description": "From a previous response's `meta.next_cursor`. Opaque: do not construct\nor parse one. Takes precedence over `limit`.\n",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "Limit": {
+        "name": "limit",
+        "in": "query",
+        "description": "Items per page.",
+        "schema": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100,
+          "default": 25
+        }
+      },
+      "LinkId": {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      }
+    },
+    "responses": {
+      "Unauthorized": {
+        "description": "Missing, invalid, revoked or expired credential",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        }
+      },
+      "Forbidden": {
+        "description": "Authenticated, but this token lacks the required scope",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        }
+      },
+      "NotFound": {
+        "description": "No such resource. Also returned when a resource exists but belongs to\nsomeone else, so ids cannot be probed for existence.\n",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        }
+      },
+      "InvalidRequest": {
+        "description": "Malformed or missing parameters",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        }
+      },
+      "Conflict": {
+        "description": "Already exists",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        }
+      },
+      "PlanLimit": {
+        "description": "A plan quota is exhausted",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        }
+      },
+      "ProRequired": {
+        "description": "The feature requires a Pro subscription",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        }
+      },
+      "RateLimited": {
+        "description": "Too many requests",
+        "headers": {
+          "retry-after": {
+            "schema": {
+              "type": "integer"
+            },
+            "description": "Seconds until the window resets."
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        }
+      }
+    },
+    "schemas": {
+      "ErrorEnvelope": {
+        "type": "object",
+        "required": [
+          "error"
+        ],
+        "properties": {
+          "error": {
+            "type": "object",
+            "required": [
+              "code",
+              "message"
+            ],
+            "properties": {
+              "code": {
+                "$ref": "#/components/schemas/ErrorCode"
+              },
+              "message": {
+                "type": "string",
+                "description": "Human-readable. Do not branch on this; branch on `code`."
+              },
+              "details": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        }
+      },
+      "ErrorCode": {
+        "type": "string",
+        "description": "A closed set. HTTP status is derived from this in one place, and message\ntext never affects it.\n",
+        "enum": [
+          "invalid_request",
+          "unauthorized",
+          "forbidden",
+          "not_found",
+          "conflict",
+          "plan_limit",
+          "pro_required",
+          "rate_limited",
+          "internal"
+        ]
+      },
+      "PagedEnvelope": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {}
+          },
+          "meta": {
+            "type": "object",
+            "properties": {
+              "has_more": {
+                "type": "boolean"
+              },
+              "next_cursor": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "description": "Null when this is the last page."
+              },
+              "total": {
+                "type": "integer",
+                "description": "Present only when the underlying query reports one."
+              }
+            }
+          }
+        }
+      },
+      "Scope": {
+        "type": "string",
+        "enum": [
+          "links:read",
+          "links:write",
+          "collections:read",
+          "collections:write",
+          "tags:read",
+          "tags:write",
+          "highlights:read",
+          "highlights:write",
+          "search:read",
+          "discover:read",
+          "discover:write",
+          "feeds:read",
+          "feeds:write",
+          "ai:chat",
+          "tts:synthesize",
+          "profile:read",
+          "profile:write",
+          "obsidian:read"
+        ]
+      },
+      "Link": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "url": {
+            "type": "string",
+            "format": "uri"
+          },
+          "normalized_url": {
+            "type": "string",
+            "description": "Canonical form used for deduplication. Tracking parameters removed."
+          },
+          "title": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Editable through PATCH. Parsed from the page when a link is saved without one, and never overwritten by parsing afterwards.\n"
+          },
+          "image_url": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uri"
+          },
+          "icon_url": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uri"
+          },
+          "collection_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "feed_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "source_type": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "How it arrived, e.g. `api`, `email`, `rss`, `extension`."
+          },
+          "processing_status": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Pending until fetching, parsing and embedding finish."
+          },
+          "is_visited": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "is_pinned": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "archived_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "broken_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "Set when a link check found the URL unreachable."
+          },
+          "http_status": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "ReaderContent": {
+        "type": "object",
+        "properties": {
+          "link_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "byline": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "site_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "published_time": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "excerpt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "lead_image_url": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uri"
+          },
+          "html_content": {
+            "type": "string",
+            "description": "Sanitised. Scripts, event handlers and javascript URLs removed."
+          },
+          "word_count": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "reading_progress": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "outline": {
+            "type": "array",
+            "description": "Table of contents computed server-side from the same HTML. Ids match\nthe anchors the reader injects, so an entry can be scrolled to.\n",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "level": {
+                  "type": "integer"
+                },
+                "text": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "parsed_by": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "Collection": {
+        "type": "object",
+        "properties": {
+          "collection_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "collection_name": {
+            "type": "string"
+          },
+          "collection_description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "color_tag": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "icon_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "is_pinned": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "is_public": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "is_locked": {
+            "type": "boolean",
+            "description": "True when the collection is beyond the plan's link allowance."
+          },
+          "name_slug": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Frozen at creation. Used in the public share URL."
+          },
+          "link_count": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "Tag": {
+        "type": "object",
+        "properties": {
+          "tag_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "tag_name": {
+            "type": "string"
+          },
+          "link_count": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "Highlight": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "link_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "article_url": {
+            "type": "string",
+            "format": "uri"
+          },
+          "selected_text": {
+            "type": "string"
+          },
+          "start_offset": {
+            "type": "integer"
+          },
+          "end_offset": {
+            "type": "integer"
+          },
+          "color": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "annotation": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "Insight": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "link_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "processing",
+              "complete",
+              "failed"
+            ]
+          },
+          "summary": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "key_questions": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "related_links": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "object"
+            }
+          },
+          "generated_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "SearchResult": {
+        "type": "object",
+        "properties": {
+          "link_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "url": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uri"
+          },
+          "snippet": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Matching passage, with the query terms in context."
+          },
+          "score": {
+            "type": [
+              "number",
+              "null"
+            ]
+          }
+        }
+      },
+      "DiscoveryItem": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "title": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "summary": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "source_url": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uri"
+          },
+          "image_url": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uri"
+          },
+          "category": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "public_slug": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "Feed": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "feed_url": {
+            "type": "string",
+            "format": "uri"
+          },
+          "site_url": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uri"
+          },
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "icon_url": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uri"
+          },
+          "last_fetched_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          }
+        }
+      },
+      "Conversation": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "context_type": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "link",
+              "collection",
+              "library",
+              null
+            ]
+          },
+          "context_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "is_pinned": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          }
+        }
+      },
+      "Message": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "conversation_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "user",
+              "assistant",
+              "system"
+            ]
+          },
+          "content": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "Account": {
+        "type": "object",
+        "properties": {
+          "uid": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "email": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "email"
+          },
+          "username": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "avatar_url": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uri"
+          },
+          "time_zone": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "subscription": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "plan": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "is_trial": {
+                "type": "boolean"
+              },
+              "renews_at": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "format": "date-time"
+              },
+              "platform": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            }
+          },
+          "auth": {
+            "type": "object",
+            "description": "How this particular request authenticated.",
+            "properties": {
+              "via": {
+                "type": "string",
+                "enum": [
+                  "pat",
+                  "jwt"
+                ]
+              },
+              "scopes": {
+                "oneOf": [
+                  {
+                    "type": "string",
+                    "const": "all"
+                  },
+                  {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/Scope"
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        }
+      },
+      "Usage": {
+        "type": "object",
+        "properties": {
+          "chat": {
+            "$ref": "#/components/schemas/CreditBucket"
+          },
+          "embedding": {
+            "$ref": "#/components/schemas/CreditBucket"
+          },
+          "youtube_transcripts_used": {
+            "type": "integer"
+          },
+          "last_reset_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          }
+        }
+      },
+      "CreditBucket": {
+        "type": "object",
+        "properties": {
+          "assigned": {
+            "type": "number"
+          },
+          "used": {
+            "type": "number"
+          },
+          "remaining": {
+            "type": "number"
+          }
+        }
+      },
+      "TokenSummary": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "token_prefix": {
+            "type": "string",
+            "description": "First 11 characters, for display. Not a usable credential.",
+            "examples": [
+              "lw_pat_A1b2"
+            ]
+          },
+          "scopes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Scope"
+            }
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "last_used_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "expires_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "Null means it never expires."
+          }
+        }
+      }
+    }
+  }
+}
