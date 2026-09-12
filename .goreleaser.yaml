@@ -31,8 +31,12 @@ archives:
 checksum:
   name_template: checksums.txt
 
-brews:
+# A cask rather than a formula. goreleaser deprecated `brews` in v2.10: a
+# formula that ships a prebuilt binary was always working against the grain of
+# what a formula is for, and casks are the supported way to do it.
+homebrew_casks:
   - name: linkwise
+    binaries: [linkwise]
     repository:
       owner: LinkwiseApp
       name: homebrew-tap
@@ -40,8 +44,17 @@ brews:
     homepage: https://linkwise.app
     description: Your Linkwise library, from the terminal
     license: MIT
-    test: |
-      system "#{bin}/linkwise", "--version"
+    hooks:
+      post:
+        # The binary is not signed or notarized, so Gatekeeper quarantines
+        # anything Homebrew unpacks from the release archive and the first run
+        # dies with "cannot be opened". Clearing the attribute on install is
+        # what every unsigned cask has to do.
+        install: |
+          if OS.mac?
+            system_command "/usr/bin/xattr",
+              args: ["-dr", "com.apple.quarantine", "#{staged_path}/linkwise"]
+          end
 
 changelog:
   use: github
