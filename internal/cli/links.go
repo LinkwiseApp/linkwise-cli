@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"strconv"
 
+	htmltomarkdown "github.com/JohannesKaufmann/html-to-markdown/v2"
 	"github.com/spf13/cobra"
 
 	"github.com/LinkwiseApp/linkwise-cli/internal/api"
@@ -26,7 +27,7 @@ func (a *App) lsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "ls",
 		Short: "List links, newest first",
-		Args:  cobra.NoArgs,
+		Args:  usageArgs(cobra.NoArgs),
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			env, err := a.Env()
 			if err != nil {
@@ -160,4 +161,187 @@ func resolveTag(ctx context.Context, env *Env, nameOrID string) (string, error) 
 		}
 	}
 	return found, nil
+}
+
+func (a *App) saveCmd() *cobra.Command {
+	var title, description, collection string
+	var tags []string
+
+	cmd := &cobra.Command{
+		Use:   "save <url>",
+		Short: "Save a link",
+		Long: "Saving a URL that is already in the library returns the existing link " +
+			"rather than creating a duplicate.",
+		Args: usageArgs(cobra.ExactArgs(1)),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			env, err := a.Env()
+			if err != nil {
+				return err
+			}
+			if err := env.requireToken(); err != nil {
+				return err
+			}
+			ctx := cmd.Context()
+
+			body := map[string]any{"url": args[0]}
+			if title != "" {
+				body["title"] = title
+			}
+			if description != "" {
+				body["description"] = description
+			}
+			if collection != "" {
+				id, err := resolveCollection(ctx, env, collection)
+				if err != nil {
+					return err
+				}
+				body["collection_id"] = id
+			}
+
+			var link api.Link
+			if _, err := env.Client.Do(ctx, api.Request{Method: "POST", Path: "/links", Body: body}, &link); err != nil {
+				return err
+			}
+
+			// Tags are a separate call: the create endpoint takes no tags, and
+			// PUT replaces the set rather than adding to it.
+			//
+			// Names, not ids. The endpoint takes `tags` as an array of strings
+			// and creates any that do not exist, so resolving them here would
+			// be a lookup that buys nothing and a not_found for a tag the
+			// server would happily have made.
+			if len(tags) > 0 {
+				if _, err := env.Client.Do(ctx, api.Request{
+					Method: "PUT",
+					Path:   "/links/" + link.ID + "/tags",
+					Body:   map[string]any{"tags": tags},
+				}, nil); err != nil {
+					return err
+				}
+			}
+
+			if env.Mode == render.JSON {
+				return render.WriteJSON(env.Out, link)
+			}
+			fmt.Fprintf(env.Out, "%s  %s\n", api.ShortID(link.ID), api.Str(link.Title, link.URL))
+			return nil
+		},
+	}
+
+	f := cmd.Flags()
+	f.StringVar(&title, "title", "", "Override the title instead of parsing one")
+	f.StringVar(&description, "description", "", "A note to yourself about why you saved it")
+	f.StringVar(&collection, "collection", "", "File it in a collection, by name or id")
+	f.StringArrayVar(&tags, "tag", nil, "Tag it. Repeatable.")
+
+	return cmd
+}
+
+func (a *App) openCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "open <id>",
+		Short: "Open a saved link in the browser",
+		Args:  usageArgs(cobra.ExactArgs(1)),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			env, err := a.Env()
+			if err != nil {
+				return err
+			}
+			if err := env.requireToken(); err != nil {
+				return err
+			}
+
+			var link api.Link
+			if _, err := env.Client.Do(cmd.Context(),
+				api.Request{Method: "GET", Path: "/links/" + args[0]}, &link); err != nil {
+				return err
+			}
+
+			// Printed as well as opened, so this still does something useful
+			// over ssh, where there is no browser to open.
+			fmt.Fprintln(env.Err, link.URL)
+			openBrowser(link.URL)
+			return nil
+		},
+	}
+}
+
+func (a *App) readCmd() *cobra.Command {
+	var raw bool
+
+	cmd := &cobra.Command{
+		Use:   "read <id>",
+		Short: "Print the extracted reader content",
+		Args:  usageArgs(cobra.ExactArgs(1)),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			env, err := a.Env()
+			if err != nil {
+				return err
+			}
+			if err := env.requireToken(); err != nil {
+				return err
+			}
+
+			var content api.ReaderContent
+			if _, err := env.Client.Do(cmd.Context(),
+				api.Request{Method: "GET", Path: "/links/" + args[0] + "/content"}, &content); err != nil {
+				return err
+			}
+
+			if env.DocMode == render.JSON {
+				return render.WriteJSON(env.Out, content)
+			}
+
+			html := api.Str(content.HTMLContent, "")
+			if html == "" {
+				// Extraction runs after a link is saved, so asking too soon is
+				// a normal thing to do and deserves a real answer rather than
+				// an empty page.
+				return &api.Error{
+					Code:    "not_found",
+					Message: "No reader content yet. Extraction runs after a link is saved; try again shortly.",
+				}
+			}
+
+			if raw {
+				fmt.Fprintln(env.Out, html)
+				return nil
+			}
+
+			markdown, err := htmltomarkdown.ConvertString(html)
+			if err != nil {
+				return err
+			}
+			fmt.Fprintln(env.Out, markdown)
+			return nil
+		},
+	}
+
+	cmd.Flags().BoolVar(&raw, "raw", false, "Print the extracted HTML instead of Markdown")
+	return cmd
+}
+
+func (a *App) rmCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "rm <id>",
+		Short: "Delete a link",
+		Long:  "A soft delete. The link is recoverable in the app.",
+		Args:  usageArgs(cobra.ExactArgs(1)),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			env, err := a.Env()
+			if err != nil {
+				return err
+			}
+			if err := env.requireToken(); err != nil {
+				return err
+			}
+
+			if _, err := env.Client.Do(cmd.Context(),
+				api.Request{Method: "DELETE", Path: "/links/" + args[0]}, nil); err != nil {
+				return err
+			}
+			fmt.Fprintf(env.Err, "Deleted %s\n", args[0])
+			return nil
+		},
+	}
 }

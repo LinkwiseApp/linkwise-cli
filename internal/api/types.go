@@ -116,3 +116,18 @@ func Day(ts string) string {
 	}
 	return ts[:10]
 }
+
+// ReaderContent is GET /v1/links/{id}/content.
+//
+// The API returns sanitised HTML and no Markdown. The docs promise `read`
+// prints Markdown by default, so the conversion happens here rather than the
+// promise being quietly dropped. --raw prints what the API actually sent.
+type ReaderContent struct {
+	LinkID      string  `json:"link_id"`
+	Title       *string `json:"title"`
+	Byline      *string `json:"byline"`
+	SiteName    *string `json:"site_name"`
+	Excerpt     *string `json:"excerpt"`
+	HTMLContent *string `json:"html_content"`
+	WordCount   *int    `json:"word_count"`
+}

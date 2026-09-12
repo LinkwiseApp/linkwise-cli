@@ -33,7 +33,7 @@ func (a *App) authLoginCmd() *cobra.Command {
 		Short: "Store a personal access token",
 		Long: "Create a key at " + dashboardURL + " and paste it here.\n" +
 			"The key is validated before it is stored, and kept in the system keychain.",
-		Args: cobra.NoArgs,
+		Args: usageArgs(cobra.NoArgs),
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			env, err := a.Env()
 			if err != nil {
@@ -94,7 +94,7 @@ func (a *App) authStatusCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "status",
 		Short: "Show the active profile, its scopes and where its key came from",
-		Args:  cobra.NoArgs,
+		Args:  usageArgs(cobra.NoArgs),
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			env, err := a.Env()
 			if err != nil {
@@ -144,7 +144,7 @@ func (a *App) authLogoutCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "logout",
 		Short: "Remove the stored key from this machine",
-		Args:  cobra.NoArgs,
+		Args:  usageArgs(cobra.NoArgs),
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			env, err := a.Env()
 			if err != nil {

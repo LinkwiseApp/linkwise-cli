@@ -46,9 +46,15 @@ type Env struct {
 	Store    *keyring.Store
 	Resolved config.Resolved
 	Mode     render.Mode
-	Out      io.Writer
-	Err      io.Writer
-	In       io.Reader
+
+	// DocMode is for the commands that emit a document rather than a list of
+	// records. `linkwise read <id> > piece.md` is the documented use, and it
+	// has to write Markdown into that file, so a pipe alone must not flip the
+	// format. Only asking for JSON does.
+	DocMode render.Mode
+	Out     io.Writer
+	Err     io.Writer
+	In      io.Reader
 }
 
 func NewRoot(version string) *cobra.Command {
@@ -104,7 +110,7 @@ func NewRoot(version string) *cobra.Command {
 	f.BoolVar(&app.flagJSON, "json", false, "Force JSON output")
 
 	app.cmd = root
-	root.AddCommand(app.authCmd(), app.lsCmd())
+	root.AddCommand(app.authCmd(), app.lsCmd(), app.saveCmd(), app.openCmd(), app.readCmd(), app.rmCmd())
 
 	return root
 }
@@ -151,6 +157,7 @@ func (a *App) Env() (*Env, error) {
 		Store:    store,
 		Resolved: resolved,
 		Mode:     render.Detect(isTTY, a.flagJSON, cfg.Output.Format),
+		DocMode:  render.Detect(true, a.flagJSON, cfg.Output.Format),
 		Out:      out,
 		Err:      errOut,
 		In:       a.cmd.InOrStdin(),
@@ -169,6 +176,21 @@ func (e *Env) requireToken() error {
 		}
 	}
 	return nil
+}
+
+// usageArgs wraps a positional-argument validator so its error is classified
+// as a usage error.
+//
+// Cobra returns a validator's error straight out of execute(), unwrapped and
+// ahead of RunE, so without this a missing argument would exit 1 when the
+// published table says a usage error is 2.
+func usageArgs(check cobra.PositionalArgs) cobra.PositionalArgs {
+	return func(cmd *cobra.Command, args []string) error {
+		if err := check(cmd, args); err != nil {
+			return &UsageError{Err: err}
+		}
+		return nil
+	}
 }
 
 // ExitCode maps an error onto the codes published at
