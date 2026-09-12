@@ -13,6 +13,7 @@ var CalledRoutes = []struct{ Method, Path string }{
 	{"GET", "/v1/links"},
 	{"POST", "/v1/links"},
 	{"GET", "/v1/links/{id}"},
+	{"PATCH", "/v1/links/{id}"},
 	{"DELETE", "/v1/links/{id}"},
 	{"GET", "/v1/links/{id}/content"},
 	{"PUT", "/v1/links/{id}/tags"},

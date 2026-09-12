@@ -1,0 +1,15 @@
+ linkwise v0.2.0                q:quit | /:search | j/k:nav 
+
+      █     █████ █   █ █   █ █   █ █████ █████ █████
+      █       █   ██  █ █  █  █   █   █   █     █
+      █       █   █ █ █ ███   █ █ █   █   █████ ████
+      █       █   █  ██ █  █  ██ ██   █       █ █
+      █████ █████ █   █ █   █ █   █ █████ █████ █████
+      Save it now. Actually read it later.
+
+      Library
+      > Browse All
+        Browse Unread
+        Browse Archived
+        Browse Collections
+

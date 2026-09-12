@@ -15,6 +15,7 @@ import (
 	"github.com/LinkwiseApp/linkwise-cli/internal/config"
 	"github.com/LinkwiseApp/linkwise-cli/internal/keyring"
 	"github.com/LinkwiseApp/linkwise-cli/internal/render"
+	"github.com/LinkwiseApp/linkwise-cli/internal/tui"
 )
 
 // UsageError marks a failure that happened before anything was sent: a bad
@@ -55,6 +56,12 @@ type Env struct {
 	Out     io.Writer
 	Err     io.Writer
 	In      io.Reader
+
+	// Interactive is whether a full-screen interface can be drawn: both ends
+	// have to be a terminal, because the TUI reads keys from one and paints
+	// the other. Mode above cares only about stdout, since that is what
+	// decides table versus NDJSON.
+	Interactive bool
 }
 
 func NewRoot(version string) *cobra.Command {
@@ -94,7 +101,7 @@ func NewRoot(version string) *cobra.Command {
 	// validator has to be the one that produces the UsageError, since
 	// nothing downstream of it ever runs for a rejected arg list.
 	root.RunE = func(cmd *cobra.Command, args []string) error {
-		return cmd.Help()
+		return app.runTUI(cmd)
 	}
 	root.Args = func(cmd *cobra.Command, args []string) error {
 		if len(args) > 0 {
@@ -167,7 +174,56 @@ func (a *App) Env() (*Env, error) {
 		Out:      out,
 		Err:      errOut,
 		In:       a.cmd.InOrStdin(),
+
+		Interactive: a.interactive(),
 	}, nil
+}
+
+// interactive reports whether a full-screen interface can be drawn: both ends
+// have to be a terminal, because the TUI reads keys from one and paints the
+// other.
+//
+// Separate from Env so that bare `linkwise` in a pipeline can answer the
+// question without resolving a credential, which would otherwise mean a
+// keychain prompt on a run that was only ever going to print help.
+func (a *App) interactive() bool {
+	f, ok := a.cmd.OutOrStdout().(*os.File)
+	if !ok || !term.IsTerminal(int(f.Fd())) {
+		return false
+	}
+	return term.IsTerminal(int(os.Stdin.Fd()))
+}
+
+// runTUI is what bare `linkwise` does.
+//
+// Anywhere the full-screen interface cannot be drawn, or would be the wrong
+// answer, this falls back to the help text the command printed before the
+// TUI existed. A script that runs `linkwise` with no arguments and reads
+// stdout sees exactly what it always saw.
+func (a *App) runTUI(cmd *cobra.Command) error {
+	if !a.interactive() || a.flagJSON {
+		return cmd.Help()
+	}
+
+	env, err := a.Env()
+	if err != nil {
+		return err
+	}
+	// Reported here rather than drawn as a screen, so there is one
+	// explanation of not being signed in, and it is the one a script sees
+	// too, with the exit code the published table promises.
+	if err := env.requireToken(); err != nil {
+		return err
+	}
+
+	return tui.Run(tui.Options{
+		Client:  env.Client,
+		Version: a.version,
+		Dark:    env.Config.TUI.Dark(),
+		SaveTheme: func(dark bool) error {
+			return config.SaveTheme(dark)
+		},
+	})
 }
 
 // requireToken is the check every command that calls the API makes first.

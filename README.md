@@ -39,6 +39,40 @@ fails at the prompt rather than on your next command. It is kept in the system
 keychain; on a machine without one the CLI writes it to a 0600 file and says
 so.
 
+## The full-screen interface
+
+Run `linkwise` with no arguments in a terminal and it opens a reader for the
+whole library: browse everything, what is unread, what is archived, or one
+collection, then read the extracted article in place.
+
+```
+ linkwise v0.2.0            q:quit | /:search | j/k:nav | d:light theme | enter:select
+
+        █     █████ █   █ █   █ █   █ █████ █████ █████
+        █       █   ██  █ █  █  █   █   █   █     █
+        █       █   █ █ █ ███   █ █ █   █   █████ ████
+        █       █   █  ██ █  █  ██ ██   █       █ █
+        █████ █████ █   █ █   █ █   █ █████ █████ █████
+        Save it now. Actually read it later.
+
+        Library
+        > Browse All
+          Browse Unread
+          Browse Archived
+          Browse Collections        23
+```
+
+`j` and `k` move, `enter` opens, `esc` goes back, `/` searches and `?` lists
+every key. On a link: `o` opens it in the browser, `y` copies the URL, `e`
+archives it, `u` marks it read and `p` pins it.
+
+`d` switches between the light and dark palettes and remembers the choice in
+`config.toml`. `NO_COLOR` drops it to plain text, as everywhere else.
+
+Anywhere the interface cannot be drawn, `linkwise` prints help exactly as it
+did before: piped output, no terminal on stdin, `--json`, or not signed in. A
+script that runs the bare command sees what it always saw.
+
 ## Output
 
 A table when stdout is a terminal, NDJSON when it is a pipe. Detected rather
@@ -78,6 +112,14 @@ default.
 | `LINKWISE_API` | Base URL, for pointing at another deploy |
 | `LINKWISE_PROFILE` | Which profile to use, for multiple accounts |
 | `NO_COLOR` | Any value disables colour, per no-color.org |
+
+The full-screen interface reads one more setting, which it writes itself when
+you press `d`:
+
+```toml
+[tui]
+theme = "dark"   # or "light"
+```
 
 ## Build from source
 

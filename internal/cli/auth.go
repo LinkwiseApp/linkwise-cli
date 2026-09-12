@@ -5,14 +5,13 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"os/exec"
-	"runtime"
 	"strings"
 
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
 
 	"github.com/LinkwiseApp/linkwise-cli/internal/api"
+	"github.com/LinkwiseApp/linkwise-cli/internal/browser"
 	"github.com/LinkwiseApp/linkwise-cli/internal/render"
 )
 
@@ -208,15 +207,4 @@ func maskToken(token string) string {
 
 // openBrowser is best effort. The URL is printed first, so a machine with no
 // browser loses nothing by this failing.
-func openBrowser(url string) {
-	var cmd string
-	switch runtime.GOOS {
-	case "darwin":
-		cmd = "open"
-	case "windows":
-		cmd = "explorer"
-	default:
-		cmd = "xdg-open"
-	}
-	_ = exec.Command(cmd, url).Start()
-}
+func openBrowser(url string) { browser.Open(url) }

@@ -53,6 +53,7 @@ type Link struct {
 	Description  *string `json:"description"`
 	CollectionID *string `json:"collection_id"`
 	IsVisited    *bool   `json:"is_visited"`
+	IsPinned     *bool   `json:"is_pinned"`
 	ArchivedAt   *string `json:"archived_at"`
 	CreatedAt    string  `json:"created_at"`
 }

@@ -19,6 +19,7 @@ type Config struct {
 	DefaultProfile string             `toml:"default_profile"`
 	Profiles       map[string]Profile `toml:"profiles"`
 	Output         Output             `toml:"output"`
+	TUI            TUI                `toml:"tui"`
 }
 
 type Profile struct {
