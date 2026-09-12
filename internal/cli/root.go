@@ -104,7 +104,7 @@ func NewRoot(version string) *cobra.Command {
 	f.BoolVar(&app.flagJSON, "json", false, "Force JSON output")
 
 	app.cmd = root
-	root.AddCommand(app.authCmd())
+	root.AddCommand(app.authCmd(), app.lsCmd())
 
 	return root
 }

@@ -7,6 +7,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
 
@@ -18,7 +19,9 @@ var version = "dev"
 
 func main() {
 	root := cli.NewRoot(version)
-	if err := root.Execute(); err != nil {
+	// ExecuteContext rather than Execute so cmd.Context() is a real context
+	// every command can hang a cancellation off, rather than nil.
+	if err := root.ExecuteContext(context.Background()); err != nil {
 		fmt.Fprintln(os.Stderr, "linkwise:", err)
 		os.Exit(cli.ExitCode(err))
 	}
