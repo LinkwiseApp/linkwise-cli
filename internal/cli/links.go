@@ -345,3 +345,41 @@ func (a *App) rmCmd() *cobra.Command {
 		},
 	}
 }
+
+func (a *App) tagCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "tag <id> <tag>...",
+		Short: "Replace the tags on a link",
+		// "Replace", said twice, because someone expecting it to add will
+		// silently lose the tags they had.
+		Long: "Replaces the whole set of tags on a link. Tags not listed are removed.\n" +
+			"Tags that do not exist yet are created.",
+		Args: usageArgs(cobra.MinimumNArgs(2)),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			env, err := a.Env()
+			if err != nil {
+				return err
+			}
+			if err := env.requireToken(); err != nil {
+				return err
+			}
+			ctx := cmd.Context()
+
+			linkID, names := args[0], args[1:]
+
+			// Names go straight through. The endpoint's contract is "send the
+			// complete list you want", and it creates any tag that does not
+			// exist yet, which is exactly what the docs promise.
+			if _, err := env.Client.Do(ctx, api.Request{
+				Method: "PUT",
+				Path:   "/links/" + linkID + "/tags",
+				Body:   map[string]any{"tags": names},
+			}, nil); err != nil {
+				return err
+			}
+
+			fmt.Fprintf(env.Err, "Tagged %s\n", linkID)
+			return nil
+		},
+	}
+}
