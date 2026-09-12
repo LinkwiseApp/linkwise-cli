@@ -1,0 +1,49 @@
+version: 2
+
+project_name: linkwise
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - main: ./cmd/linkwise
+    binary: linkwise
+    env: [CGO_ENABLED=0]
+    goos: [darwin, linux, windows]
+    goarch: [amd64, arm64]
+    ignore:
+      - goos: windows
+        goarch: arm64
+    # Trimmed and stripped. The version is the tag, so a bug report naming a
+    # version names an exact commit.
+    flags: [-trimpath]
+    ldflags:
+      - -s -w -X main.version={{.Version}}
+
+archives:
+  - formats: [tar.gz]
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+    name_template: "{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}"
+
+checksum:
+  name_template: checksums.txt
+
+brews:
+  - name: linkwise
+    repository:
+      owner: LinkwiseApp
+      name: homebrew-tap
+      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
+    homepage: https://linkwise.app
+    description: Your Linkwise library, from the terminal
+    license: MIT
+    test: |
+      system "#{bin}/linkwise", "--version"
+
+changelog:
+  use: github
+  filters:
+    exclude: ["^docs:", "^test:", "^chore:"]
