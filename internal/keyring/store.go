@@ -14,9 +14,14 @@ import (
 	gokeyring "github.com/zalando/go-keyring"
 )
 
-// service is the keychain entry name. Reverse DNS because that is what every
+// Service is the keychain entry name. Reverse DNS because that is what every
 // macOS keychain viewer sorts by, and a user should be able to find this.
-const service = "app.linkwise.cli"
+//
+// A variable rather than a constant so a test suite can point itself at an
+// entry nobody is signed in with. Without that seam, running the tests on a
+// machine where someone had logged in would read, and on logout erase, their
+// real key.
+var Service = "app.linkwise.cli"
 
 var ErrNotFound = gokeyring.ErrNotFound
 
@@ -51,14 +56,14 @@ func (s *Store) path() string { return filepath.Join(s.Dir, "credentials.toml") 
 
 // Set stores a token and reports where it landed, so the caller can say so.
 func (s *Store) Set(profile, token string) (string, error) {
-	if err := s.SetFn(service, profile, token); err == nil {
+	if err := s.SetFn(Service, profile, token); err == nil {
 		return "keychain", nil
 	}
 	return "file", s.writeFile(profile, token)
 }
 
 func (s *Store) Get(profile string) (string, string, error) {
-	token, err := s.GetFn(service, profile)
+	token, err := s.GetFn(Service, profile)
 	if err == nil && token != "" {
 		return token, "keychain", nil
 	}
@@ -84,7 +89,7 @@ func (s *Store) Get(profile string) (string, string, error) {
 func (s *Store) Delete(profile string) (string, error) {
 	var from string
 
-	if err := s.DeleteFn(service, profile); err == nil {
+	if err := s.DeleteFn(Service, profile); err == nil {
 		from = "keychain"
 	}
 
