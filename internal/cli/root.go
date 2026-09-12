@@ -7,6 +7,8 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
+
+	"github.com/LinkwiseApp/linkwise-cli/internal/api"
 )
 
 // UsageError marks a failure that happened before anything was sent: a bad
@@ -70,8 +72,8 @@ func NewRoot(version string) *cobra.Command {
 }
 
 // ExitCode maps an error onto the codes published at
-// linkwise.app/developers/cli#exit-codes. Task 2 extends this with the API's
-// error codes; until then everything that is not a usage error is a 1.
+// linkwise.app/developers/cli#exit-codes. A usage error is caught here because
+// nothing was sent; everything else is the API's to classify.
 func ExitCode(err error) int {
 	if err == nil {
 		return 0
@@ -80,5 +82,5 @@ func ExitCode(err error) int {
 	if errors.As(err, &usage) {
 		return 2
 	}
-	return 1
+	return api.ExitCode(err)
 }
