@@ -170,3 +170,54 @@ func (c *Client) do(ctx context.Context, r Request, out any) (*Meta, error) {
 
 	return env.Meta, nil
 }
+
+// DoRaw returns the body untouched, for the one route that does not speak the
+// envelope: GET /v1/feeds/export builds an OPML document so that subscriptions
+// round-trip with any other reader.
+//
+// Errors still arrive as the envelope even on that route, so a JSON error body
+// is decoded rather than handed back as bytes. Deciding by status rather than
+// by content type, because an error page from a proxy in front of the gateway
+// can carry any content type it likes.
+func (c *Client) DoRaw(ctx context.Context, r Request) ([]byte, string, error) {
+	endpoint := c.BaseURL + r.Path
+	if len(r.Query) > 0 {
+		endpoint += "?" + r.Query.Encode()
+	}
+
+	req, err := http.NewRequestWithContext(ctx, r.Method, endpoint, nil)
+	if err != nil {
+		return nil, "", err
+	}
+	req.Header.Set("Authorization", "Bearer "+c.Token)
+	req.Header.Set("User-Agent", c.UserAgent)
+
+	resp, err := c.HTTP.Do(req)
+	if err != nil {
+		return nil, "", err
+	}
+	defer resp.Body.Close()
+
+	raw, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, "", err
+	}
+
+	if resp.StatusCode >= 400 {
+		var env envelope
+		if err := json.Unmarshal(raw, &env); err == nil && env.Error != nil {
+			env.Error.Status = resp.StatusCode
+			env.Error.RequestID = resp.Header.Get("x-request-id")
+			env.Error.RetryAfter, env.Error.retryHinted = retryAfter(resp.Header)
+			return nil, "", env.Error
+		}
+		return nil, "", &Error{
+			Code:      "internal",
+			Message:   fmt.Sprintf("unexpected %d response from %s", resp.StatusCode, endpoint),
+			Status:    resp.StatusCode,
+			RequestID: resp.Header.Get("x-request-id"),
+		}
+	}
+
+	return raw, resp.Header.Get("Content-Type"), nil
+}

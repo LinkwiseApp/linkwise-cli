@@ -154,3 +154,38 @@ type Highlight struct {
 	Annotation   *string `json:"annotation"`
 	CreatedAt    string  `json:"created_at"`
 }
+
+type Feed struct {
+	ID      string  `json:"id"`
+	Title   string  `json:"title"`
+	FeedURL string  `json:"feed_url"`
+	SiteURL *string `json:"site_url"`
+	IconURL *string `json:"icon_url"`
+}
+
+// DiscoverItem is the recommendation feed's row. The link address is
+// `source_url`, not `url`, and there is no `source` field: what a reader would
+// call the source is `category`.
+type DiscoverItem struct {
+	ID        string  `json:"id"`
+	Kind      *string `json:"kind"`
+	Title     *string `json:"title"`
+	Summary   *string `json:"summary"`
+	SourceURL *string `json:"source_url"`
+	Category  *string `json:"category"`
+}
+
+// Usage is GET /v1/me/usage. Credits rather than a request count: the quota
+// that runs out first is the chat and embedding allowance, not calls.
+type Usage struct {
+	Chat                   Credits `json:"chat"`
+	Embedding              Credits `json:"embedding"`
+	YouTubeTranscriptsUsed *int    `json:"youtube_transcripts_used"`
+	LastResetAt            *string `json:"last_reset_at"`
+}
+
+type Credits struct {
+	Assigned  *int `json:"assigned"`
+	Used      *int `json:"used"`
+	Remaining *int `json:"remaining"`
+}

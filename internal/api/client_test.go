@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strings"
 	"testing"
 	"time"
 )
@@ -186,5 +187,44 @@ func TestDoSendsQueryAndBody(t *testing.T) {
 	}, &out)
 	if err != nil {
 		t.Fatalf("Do: %v", err)
+	}
+}
+
+func TestDoRawReturnsTheBodyUntouched(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/x-opml+xml; charset=utf-8")
+		w.Write([]byte(`<?xml version="1.0"?><opml version="2.0"></opml>`))
+	}))
+	defer srv.Close()
+
+	c := New(srv.URL, "t", "test")
+	body, ct, err := c.DoRaw(context.Background(), Request{Method: "GET", Path: "/feeds/export"})
+	if err != nil {
+		t.Fatalf("DoRaw: %v", err)
+	}
+	if !strings.HasPrefix(string(body), "<?xml") {
+		t.Fatalf("body = %q", body)
+	}
+	if !strings.Contains(ct, "opml") {
+		t.Fatalf("content type = %q", ct)
+	}
+}
+
+// An error on a raw route still arrives as the JSON envelope, and must still
+// map to an exit code rather than being handed back as XML.
+func TestDoRawStillDecodesErrors(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusUnauthorized)
+		json.NewEncoder(w).Encode(map[string]any{
+			"error": map[string]any{"code": "unauthorized", "message": "Missing or invalid credentials"},
+		})
+	}))
+	defer srv.Close()
+
+	c := New(srv.URL, "t", "test")
+	_, _, err := c.DoRaw(context.Background(), Request{Method: "GET", Path: "/feeds/export"})
+	if ExitCode(err) != 3 {
+		t.Fatalf("exit code = %d, want 3", ExitCode(err))
 	}
 }
