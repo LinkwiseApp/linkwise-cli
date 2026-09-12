@@ -130,9 +130,13 @@ func (a *App) authStatusCmd() *cobra.Command {
 
 			// Expiry is missing on purpose: GET /v1/me does not return it, and
 			// inventing a value would be worse than leaving the row out.
+			//
+			// The plan is tidied for the table and left verbatim in the JSON
+			// above. A person reads "free"; a script matching on what the
+			// server actually said should get what the server actually said.
 			return render.WriteTable(env.Out, nil, [][]string{
 				{"Profile", env.Resolved.Profile},
-				{"Account", fmt.Sprintf("%s  (%s)", me.Email, plan)},
+				{"Account", fmt.Sprintf("%s  (%s)", me.Email, strings.TrimPrefix(plan, "plan_"))},
 				{"Key", fmt.Sprintf("%s  (from the %s)", maskToken(env.Resolved.Token), env.Resolved.TokenFrom)},
 				{"Scopes", strings.Join(me.Auth.ScopeList(), " ")},
 			})

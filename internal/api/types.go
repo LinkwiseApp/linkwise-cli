@@ -143,10 +143,31 @@ type SearchHit struct {
 	Score *float64 `json:"score"`
 }
 
+// SearchResults is what GET /v1/search actually returns: buckets keyed by what
+// matched, not a flat list.
+//
+// The spec declares this route's data as an array of SearchResult, and the
+// route returns an object. Reality wins, and the CLI decoded the spec's shape
+// until a live call failed on it.
+//
+// Only links are pinned to a struct. The other buckets are counted for a line
+// on stderr and otherwise left as raw JSON, because pinning columns the CLI
+// never renders is how a rename in Postgres becomes an empty cell.
+type SearchResults struct {
+	Links       []SearchHit       `json:"links"`
+	Collections []json.RawMessage `json:"collections"`
+	Highlights  []json.RawMessage `json:"highlights"`
+	Tags        []json.RawMessage `json:"tags"`
+	Feeds       []json.RawMessage `json:"feeds"`
+}
+
 type Highlight struct {
-	ID           string  `json:"id"`
-	LinkID       string  `json:"link_id"`
-	ArticleURL   *string `json:"article_url"`
+	ID         string  `json:"id"`
+	LinkID     string  `json:"link_id"`
+	ArticleURL *string `json:"article_url"`
+	// Only the search route fills this in, with the title of the link the
+	// highlight sits on. Listing highlights does not return it.
+	Title        *string `json:"title,omitempty"`
 	SelectedText string  `json:"selected_text"`
 	StartOffset  int     `json:"start_offset"`
 	EndOffset    int     `json:"end_offset"`
