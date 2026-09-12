@@ -41,11 +41,20 @@ $BIN ls --limit 2 | head -1 | jq -e '.id' >/dev/null || fail "a pipe should prod
 ok "a pipe produces NDJSON"
 
 echo "round trip"
-id=$($BIN save "https://example.com/linkwise-smoke-$RANDOM" --json | jq -r .id)
-[ -n "$id" ] || fail "save returned no id"
-ok "saved $id"
-$BIN rm "$id" >/dev/null
-ok "deleted it again"
+# A full library exits 7, which is the account being full rather than anything
+# wrong with the binary. Reported and skipped instead of failing the run.
+saved=$($BIN save "https://example.com/linkwise-smoke-$RANDOM" --json 2>/dev/null) || save_status=$?
+if [ "${save_status:-0}" -eq 7 ]; then
+  echo "  skipped: this account is at its link limit, so save and rm were not exercised"
+elif [ "${save_status:-0}" -ne 0 ]; then
+  fail "save exited ${save_status}"
+else
+  id=$(printf '%s' "$saved" | jq -r .id)
+  [ -n "$id" ] || fail "save returned no id"
+  ok "saved $id"
+  $BIN rm "$id" >/dev/null
+  ok "deleted it again"
+fi
 
 echo "feeds export"
 $BIN feeds export | head -1 | grep -q '^<?xml' || fail "export should start with an XML declaration"
