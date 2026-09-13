@@ -118,7 +118,7 @@ func NewRoot(version string) *cobra.Command {
 
 	app.cmd = root
 	root.AddCommand(app.authCmd(), app.lsCmd(), app.saveCmd(), app.openCmd(), app.readCmd(), app.rmCmd(), app.tagCmd(), app.searchCmd(), app.highlightsCmd(),
-		app.discoverCmd(), app.feedsCmd(), app.usageCmd())
+		app.discoverCmd(), app.feedsCmd(), app.usageCmd(), app.updateCmd())
 	// The type parameter is not ceremony. Collection decodes collection_id and
 	// collection_name while Tag decodes tag_id and tag_name, so one struct
 	// cannot serve both, and api.Named is what lets one command body do either.
