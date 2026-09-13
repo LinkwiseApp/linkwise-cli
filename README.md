@@ -24,6 +24,34 @@ curl -fsSL https://linkwise.app/install.sh | sh
 The shell installer and the npm package both verify the release checksum
 before unpacking anything. If it does not match, nothing is written.
 
+## Update
+
+```bash
+linkwise update          # what is newest, and the command that installs it
+linkwise update --run    # run that command
+```
+
+Each channel owns the file it put on disk, so the right command is not the
+same for everyone. `update` works it out from where the binary actually lives:
+
+```bash
+brew upgrade --cask linkwiseapp/tap/linkwise   # Homebrew
+npm install -g @linkwise/cli@latest            # npm
+curl -fsSL https://linkwise.app/install.sh | sh  # shell installer
+```
+
+Once a day, a command run at a terminal checks in the background and prints
+one line on stderr when a newer release is out. The lookup runs alongside the
+work you asked for rather than delaying it, and an unfinished one leaves the
+news for next time. `LINKWISE_NO_UPDATE_CHECK` turns it off; it is already off
+when output is piped, on `--json`, and wherever `CI` is set.
+
+Switching from the shell installer to Homebrew means removing the old binary
+first: the installer writes a real file where the cask wants its own symlink,
+so `brew install` stops with `there is already a Binary at ...` until you `rm`
+it. Going the other way, the installer refuses on its own rather than breaking
+your Homebrew install.
+
 ## Get started
 
 ```bash
