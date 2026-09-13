@@ -44,17 +44,37 @@ homebrew_casks:
     homepage: https://linkwise.app
     description: Your Linkwise library, from the terminal
     license: MIT
-    hooks:
-      post:
-        # The binary is not signed or notarized, so Gatekeeper quarantines
-        # anything Homebrew unpacks from the release archive and the first run
-        # dies with "cannot be opened". Clearing the attribute on install is
-        # what every unsigned cask has to do.
-        install: |
-          if OS.mac?
-            system_command "/usr/bin/xattr",
-              args: ["-dr", "com.apple.quarantine", "#{staged_path}/linkwise"]
-          end
+    # The binary is not signed or notarized, so Gatekeeper quarantines anything
+    # Homebrew unpacks from the release archive and the first run dies with
+    # "cannot be opened". Clearing the attribute on install is what every
+    # unsigned cask has to do.
+    #
+    # Written through custom_block rather than the `hooks` key because that key
+    # emits a `postflight` block, which Homebrew deprecated: it warns on every
+    # brew command naming our tap, and when it is removed the quarantine stops
+    # being cleared and first run breaks for everyone installing with brew.
+    # goreleaser has no postflight_steps option, so the stanza is written out.
+    custom_block: |
+      # Homebrew's own error for this is "It seems there is already a Binary at
+      # '/usr/local/bin/linkwise'", which names no remedy, and the usual cause
+      # is that the shell installer put a real file where the cask wants its
+      # symlink. A preflight warning is the only chance to say so: it prints
+      # immediately above that error. It cannot fire spuriously on an upgrade,
+      # because Homebrew unlinks the old symlink before preflight runs.
+      preflight_steps do
+        if_path_exists "bin/linkwise", base: :homebrew_prefix do
+          warn "linkwise is already installed at {{`{{HOMEBREW_PREFIX}}`}}/bin/linkwise, and not by Homebrew. " \
+               "It was probably installed with install.sh. Remove it first: rm {{`{{HOMEBREW_PREFIX}}`}}/bin/linkwise"
+        end
+      end
+
+      postflight_steps do
+        on_macos do
+          run "/usr/bin/xattr",
+              args:         ["-dr", "com.apple.quarantine", "{{`{{staged_path}}`}}/linkwise"],
+              must_succeed: false
+        end
+      end
 
 changelog:
   use: github
