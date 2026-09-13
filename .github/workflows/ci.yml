@@ -21,6 +21,11 @@ jobs:
       - run: go vet ./...
       - run: go test ./... -race
 
+      # install.sh decides, before it downloads anything, whether it is about
+      # to overwrite another channel's install. That is the part of this repo
+      # that can damage a machine, and no Go test reaches it.
+      - run: ./scripts/install_test.sh
+
       # Cross-compilation is the thing goreleaser will do on a tag. Finding out
       # here costs a minute; finding out during a release costs the release.
       - name: Cross compile every target
