@@ -237,7 +237,6 @@ func TestNoticeGivesUpOnASlowCheck(t *testing.T) {
 		http.Redirect(w, r, "/releases/tag/v0.2.0", http.StatusFound)
 	}))
 	defer srv.Close()
-	defer close(release)
 
 	check := Begin(Options{
 		Current:   "0.1.0",
@@ -258,6 +257,15 @@ func TestNoticeGivesUpOnASlowCheck(t *testing.T) {
 	if elapsed > time.Second {
 		t.Fatalf("Notice waited %v for a check that had not finished", elapsed)
 	}
+
+	// The check is still in flight, and writes the cache when it finishes.
+	// Draining it here rather than deferring the unblock is what keeps that
+	// write ahead of the temp directory being removed: the goroutine writes
+	// before it sends, so a received value means the file is already there.
+	// Left to a defer, the write races t.TempDir's cleanup and the test fails
+	// on a directory that is somehow not empty.
+	close(release)
+	check.Notice(2 * time.Second)
 }
 
 // Every command path calls this, including ones that never started a check.
